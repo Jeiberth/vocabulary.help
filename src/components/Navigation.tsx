@@ -50,7 +50,7 @@ const Navigation = () => {
       <Card className="md:hidden fixed top-4 left-4 right-4 z-50 dark:bg-gray-800 dark:border-gray-700">
         <div className="flex justify-between items-center p-2">
           <div className="flex items-center gap-2">
-            <BookOpen className="text-blue-600 dark:text-blue-400" size={20} />
+            <img src="/logo.png" alt="" style={{ width: '30px', height: 'auto' }}/>
             <span className="font-bold text-sm dark:text-white">{t('home.title')}</span>
           </div>
           <div className="flex gap-1">
