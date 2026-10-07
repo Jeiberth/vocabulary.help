@@ -15,6 +15,9 @@ const Review = () => {
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
+  // UI only: id of the card whose learning-language word the user has revealed by tapping "?????".
+  // Derived per card, so a new card is always hidden and no state carries over between cards.
+  const [revealedCardId, setRevealedCardId] = useState<Flashcard['id'] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionType, setSessionType] = useState<'due' | 'all'>('due');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -131,6 +134,7 @@ const Review = () => {
       setCards(dueCards);
       setCurrentIndex(0);
       setShowAnswer(false);
+      setRevealedCardId(null);
       setSessionType('due');
     } catch (error) {
       console.error('Failed to load due cards:', error);
@@ -152,6 +156,7 @@ const Review = () => {
       setCards(prioritizedCards);
       setCurrentIndex(0);
       setShowAnswer(false);
+      setRevealedCardId(null);
       setSessionType('all');
     } catch (error) {
       console.error('Failed to load all cards:', error);
@@ -276,6 +281,7 @@ const Review = () => {
       }
       
       setShowAnswer(false);
+      setRevealedCardId(null);
     } catch (error) {
       console.error('Failed to update card review:', error);
     }
@@ -381,19 +387,22 @@ const Review = () => {
 
   const currentCard = cards[currentIndex];
   const { stateText, stateColor, intervalText, isLearning, isRelearning } = getCardStateInfo(currentCard);
+  const isWordRevealed = revealedCardId === currentCard.id;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 pt-24 md:pt-28 pb-8">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white mb-4">
-            <BookOpen size={24} />
+        {/* Header: slightly smaller on mobile (icon + title on one row), same as original on desktop */}
+        <div className="text-center space-y-1 md:space-y-2">
+          <div className="flex items-center justify-center gap-2 md:flex-col md:gap-0">
+            <div className="inline-flex items-center justify-center p-2 md:p-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white md:mb-4">
+              <BookOpen className="h-5 w-5 md:h-6 md:w-6" />
+            </div>
+            <h1 className="text-xl md:text-2xl font-bold dark:text-white">
+              {sessionType === 'due' ? t('review.title.due') : t('review.title.all')}
+            </h1>
           </div>
-          <h1 className="text-2xl font-bold dark:text-white">
-            {sessionType === 'due' ? t('review.title.due') : t('review.title.all')}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
             {t('review.subtitle')} {currentIndex + 1} {t('review.subtitle.of')} {cards.length}
           </p>
         </div>
@@ -430,10 +439,25 @@ const Review = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center space-y-6">
-            <div className="text-center">
-              <div className="text-3xl font-bold mb-4 dark:text-white">
-                {showAnswer ? currentCard.english : currentCard.french}
-              </div>
+            <div className="w-full min-w-0 text-center">
+              {showAnswer ? (
+                <div className="text-3xl font-bold mb-4 break-words dark:text-white">
+                  {currentCard.english}
+                </div>
+              ) : isWordRevealed ? (
+                <div className="text-3xl font-bold mb-4 break-words dark:text-white">
+                  {currentCard.french}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setRevealedCardId(currentCard.id)}
+                  aria-label={t('review.card.french')}
+                  className="block w-full text-center text-3xl font-bold tracking-widest mb-4 cursor-pointer select-none rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-white"
+                >
+                  ?????
+                </button>
+              )}
               {!showAnswer && (
                 <Button
                   variant="outline"
@@ -447,7 +471,7 @@ const Review = () => {
               )}
               {showAnswer && (
                 <div className="space-y-3">
-                  <div className="text-xl text-gray-600 dark:text-gray-400 mb-4">
+                  <div className="text-xl text-gray-600 dark:text-gray-400 mb-4 break-words">
                     {currentCard.french}
                   </div>
                   <Button
