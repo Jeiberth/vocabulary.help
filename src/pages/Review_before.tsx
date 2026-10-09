@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, Volume2, RotateCcw, CheckCircle, Clock, Calendar, Sparkles } from 'lucide-react';
+import { BookOpen, Volume2, RotateCcw, CheckCircle, Clock, Calendar } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useI18n } from '@/contexts/I18nContext';
 import { getDueCards, getAllCards, updateCardReview, Flashcard, getLearningConfig } from '@/lib/database';
 import { tts } from '@/lib/speech';
 import { useVoiceSettings } from '@/contexts/VoiceSettingsContext';
-import { explainLabels, openExplanation } from '@/lib/explain';
 
 const Review = () => {
   const { refreshStats } = useApp();
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const { speak, practiceLanguage } = useVoiceSettings();
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -19,9 +18,6 @@ const Review = () => {
   // UI only: id of the card whose learning-language word the user has revealed by tapping "?????".
   // Derived per card, so a new card is always hidden and no state carries over between cards.
   const [revealedCardId, setRevealedCardId] = useState<Flashcard['id'] | null>(null);
-  // UI only: single word the user tapped inside the uncovered phrase (scoped to a card id,
-  // so a selection never carries over to another card).
-  const [selectedWord, setSelectedWord] = useState<{ cardId: Flashcard['id']; word: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionType, setSessionType] = useState<'due' | 'all'>('due');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -139,7 +135,6 @@ const Review = () => {
       setCurrentIndex(0);
       setShowAnswer(false);
       setRevealedCardId(null);
-      setSelectedWord(null);
       setSessionType('due');
     } catch (error) {
       console.error('Failed to load due cards:', error);
@@ -162,7 +157,6 @@ const Review = () => {
       setCurrentIndex(0);
       setShowAnswer(false);
       setRevealedCardId(null);
-      setSelectedWord(null);
       setSessionType('all');
     } catch (error) {
       console.error('Failed to load all cards:', error);
@@ -288,7 +282,6 @@ const Review = () => {
       
       setShowAnswer(false);
       setRevealedCardId(null);
-      setSelectedWord(null);
     } catch (error) {
       console.error('Failed to update card review:', error);
     }
@@ -351,16 +344,6 @@ const Review = () => {
     return { stateText, stateColor, intervalText, isLearning, isRelearning };
   };
 
-  // Splits a token like "(maison)," into leading punctuation, the word itself, and trailing punctuation.
-  const splitToken = (token: string) => {
-    const match = token.match(/^([^\p{L}\p{N}]*)(.*?)([^\p{L}\p{N}]*)$/u);
-    return {
-      lead: match?.[1] ?? '',
-      core: match?.[2] ?? token,
-      trail: match?.[3] ?? '',
-    };
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 pt-24 md:pt-28 pb-8">
@@ -405,99 +388,20 @@ const Review = () => {
   const currentCard = cards[currentIndex];
   const { stateText, stateColor, intervalText, isLearning, isRelearning } = getCardStateInfo(currentCard);
   const isWordRevealed = revealedCardId === currentCard.id;
-  const isUncovered = showAnswer || isWordRevealed;
-
-  // Tokenize the phrase so individual words can be tapped (only when it has more than one word)
-  const phraseTokens = currentCard.french.split(/(\s+)/);
-  const wordCount = phraseTokens.filter(
-    (token) => token.trim() !== '' && splitToken(token).core !== ''
-  ).length;
-  const isMultiWord = wordCount > 1;
-
-  const activeSelectedWord =
-    selectedWord && selectedWord.cardId === currentCard.id ? selectedWord.word : null;
-
-  // Explain the tapped word if there is one; a single-word card is explained as a word;
-  // otherwise the whole phrase is explained.
-  const explainKind: 'word' | 'phrase' = activeSelectedWord || !isMultiWord ? 'word' : 'phrase';
-  const explainText = activeSelectedWord ?? currentCard.french.trim();
-  const explainLabel = explainLabels[language][explainKind];
-
-  const handleExplain = () => {
-    openExplanation({
-      kind: explainKind,
-      text: explainText,
-      targetLanguageCode: practiceLanguage,
-      uiLanguage: language,
-    });
-  };
-
-  const handleWordTap = (word: string) => {
-    setSelectedWord((prev) =>
-      prev && prev.cardId === currentCard.id && prev.word === word
-        ? null
-        : { cardId: currentCard.id, word }
-    );
-  };
-
-  const renderPhrase = () => {
-    if (!isMultiWord) {
-      return currentCard.french;
-    }
-
-    return phraseTokens.map((token, index) => {
-      if (token.trim() === '') {
-        return <React.Fragment key={index}>{token}</React.Fragment>;
-      }
-
-      const { lead, core, trail } = splitToken(token);
-      if (core === '') {
-        return <React.Fragment key={index}>{token}</React.Fragment>;
-      }
-
-      const isSelected = activeSelectedWord === core;
-
-      return (
-        <React.Fragment key={index}>
-          {lead}
-          <button
-            type="button"
-            onClick={() => handleWordTap(core)}
-            aria-pressed={isSelected}
-            className={`inline rounded px-0.5 -mx-0.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-              isSelected
-                ? 'bg-blue-200 dark:bg-blue-800/60'
-                : 'hover:bg-blue-100 dark:hover:bg-blue-900/40'
-            }`}
-          >
-            {core}
-          </button>
-          {trail}
-        </React.Fragment>
-      );
-    });
-  };
-
-  const renderActions = () => (
-    <div className="flex flex-wrap items-center justify-center gap-2">
-      <Button variant="outline" size="sm" onClick={speakFrench}>
-        <Volume2 className="mr-2" size={16} />
-        {t('review.listen')}
-      </Button>
-      {isUncovered && (
-        <Button variant="outline" size="sm" onClick={handleExplain} aria-label={explainLabel}>
-          <Sparkles className="mr-2" size={16} />
-          {explainLabel}
-        </Button>
-      )}
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 pt-24 md:pt-28 pb-8">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Card counter (icon + session label now live in the card title) */}
-        <div className="text-center">
+        {/* Header: slightly smaller on mobile (icon + title on one row), same as original on desktop */}
+        <div className="text-center space-y-1 md:space-y-2">
+          <div className="flex items-center justify-center gap-2 md:flex-col md:gap-0">
+            <div className="inline-flex items-center justify-center p-2 md:p-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white md:mb-4">
+              <BookOpen className="h-5 w-5 md:h-6 md:w-6" />
+            </div>
+            <h1 className="text-xl md:text-2xl font-bold dark:text-white">
+              {sessionType === 'due' ? t('review.title.due') : t('review.title.all')}
+            </h1>
+          </div>
           <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
             { /*  {t('review.subtitle')} {currentIndex + 1} {t('review.subtitle.of')} {cards.length} */ }
              {cards.length + "" } {t('review.subtitles')}
@@ -530,19 +434,20 @@ const Review = () => {
 
         {/* Flashcard */}
         <Card className="min-h-[300px] dark:bg-gray-800 dark:border-gray-700">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center justify-center gap-2 text-lg md:text-xl dark:text-white">
-              <span className="inline-flex items-center justify-center p-1.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
-                <BookOpen className="h-4 w-4 md:h-5 md:w-5" />
-              </span>
-              <span>{sessionType === 'due' ? t('review.title.due') : t('review.title.all')}</span>
+          <CardHeader>
+            <CardTitle className="text-center dark:text-white">
+              { /* showAnswer ? t('review.card.translation') : t('review.card.french') */ }
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center space-y-4 md:space-y-6">
+          <CardContent className="flex flex-col items-center justify-center space-y-6">
             <div className="w-full min-w-0 text-center">
-              {isUncovered ? (
+              {showAnswer ? (
                 <div className="text-3xl font-bold mb-4 break-words dark:text-white">
-                  {renderPhrase()}
+                  {currentCard.french}
+                </div>
+              ) : isWordRevealed ? (
+                <div className="text-3xl font-bold mb-4 break-words dark:text-white">
+                  {currentCard.french}
                 </div>
               ) : (
                 <button
@@ -555,18 +460,30 @@ const Review = () => {
                 </button>
               )}
               {!showAnswer && (
-                <div className="mb-4">
-                  {renderActions()}
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={speakFrench}
+                  className="mb-4"
+                >
+                  <Volume2 className="mr-2" size={16} />
+                  {t('review.listen')}
+                </Button>
               )}
               {showAnswer && (
                 <div className="space-y-3">
                   <div className="text-xl text-gray-600 dark:text-gray-400 mb-4 break-words">
                     {currentCard.english}
                   </div>
-                  <div className="mb-4">
-                    {renderActions()}
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={speakFrench}
+                    className="mb-4"
+                  >
+                    <Volume2 className="mr-2" size={16} />
+                    {t('review.listen')}
+                  </Button>
                 </div>
               )}
             </div>

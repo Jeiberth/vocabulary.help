@@ -24,7 +24,7 @@ const Navigation = () => {
       <Card className="hidden md:block fixed top-4 left-4 right-4 z-50 dark:bg-gray-800 dark:border-gray-700">
         <div className="flex justify-between items-center p-4">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="" style={{ width: '50px', height: 'auto' }}/>
+            <img src="/vocabulary.help/logo.png" alt="" style={{ width: '50px', height: 'auto' }}/>
             <span className="font-bold text-lg dark:text-white">{t('home.title')}</span>
           </div>
           <div className="flex gap-2">
@@ -50,7 +50,7 @@ const Navigation = () => {
       <Card className="md:hidden fixed top-4 left-4 right-4 z-50 dark:bg-gray-800 dark:border-gray-700">
         <div className="flex justify-between items-center p-2">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="" style={{ width: '30px', height: 'auto' }}/>
+            <img src="/vocabulary.help/logo.png" alt="" style={{ width: '30px', height: 'auto' }}/>
             <span className="font-bold text-sm dark:text-white">{t('home.title')}</span>
           </div>
           <div className="flex gap-1">
